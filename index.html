@@ -1,0 +1,1043 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Conference Prize Wheel of Fortune</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Canvas Confetti -->
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+  <!-- Google Fonts: Inter and Space Grotesk -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@600;700;800&display=swap" rel="stylesheet">
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: '#FF4C00',
+            'brand-dark': '#d63f00',
+            'brand-glow': '#ff783e',
+            darkness: '#0a0a0c',
+            surface: '#121216',
+            'surface-light': '#1e1e24',
+            'surface-border': '#2a2a33'
+          },
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            display: ['"Space Grotesk"', 'sans-serif']
+          }
+        }
+      }
+    };
+  </script>
+
+  <style>
+    body {
+      background-color: #050507;
+      color: #f3f4f6;
+      font-family: 'Inter', sans-serif;
+      overflow-x: hidden;
+      user-select: none;
+    }
+
+    /* Subtle orange ambient backdrop glow */
+    .brand-ambient {
+      background: radial-gradient(circle at 50% 40%, rgba(255, 76, 0, 0.16) 0%, rgba(0, 0, 0, 0) 70%);
+    }
+
+    /* Flapper ticker bounce animation */
+    .ticker-bounce {
+      transform-origin: 50% 15%;
+      transition: transform 0.06s ease-out;
+    }
+
+    /* Glowing neon accents */
+    .neon-border {
+      box-shadow: 0 0 25px rgba(255, 76, 0, 0.35), inset 0 0 15px rgba(255, 76, 0, 0.15);
+    }
+
+    .neon-text {
+      text-shadow: 0 0 12px rgba(255, 76, 0, 0.6);
+    }
+
+    /* Custom scrollbar for prize drawer */
+    ::-webkit-scrollbar {
+      width: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #0e0e12;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #272730;
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #FF4C00;
+    }
+  </style>
+</head>
+
+<body class="min-h-screen flex flex-col justify-between brand-ambient antialiased">
+  <header class="w-full border-b border-surface-border bg-black/60 backdrop-blur-md sticky top-0 z-40 px-6 py-3.5 flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <div class="w-9 h-9 rounded-xl bg-brand flex items-center justify-center shadow-lg shadow-brand/40">
+        <svg class="w-5 h-5 text-black fill-current" viewBox="0 0 24 24">
+          <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2" fill="none"/>
+          <path d="M12 2v20M2 12h20M4.93 4.93l14.14 14.14M4.93 19.07l14.14-14.14" stroke="currentColor" stroke-width="1.8"/>
+        </svg>
+      </div>
+      <div>
+        <h1 class="font-display font-extrabold text-lg sm:text-xl tracking-tight text-white flex items-center gap-2">
+          CONFERENCE <span class="text-brand">SPIN & WIN</span>
+        </h1>
+        <p class="text-xs text-gray-400 hidden sm:block">Step right up! Tap Space or click Spin to roll.</p>
+      </div>
+    </div>
+
+    <!-- Quick action buttons -->
+    <div class="flex items-center gap-2.5">
+      <button id="soundToggleBtn" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-surface-border bg-surface hover:bg-surface-light text-xs font-semibold text-gray-300 transition-colors">
+        <span id="soundIcon">🔊</span>
+        <span id="soundLabel" class="hidden md:inline">Audio On</span>
+      </button>
+
+      <button id="openPrizesBtn" class="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-brand hover:bg-brand-dark text-black font-bold text-xs transition-all shadow-md shadow-brand/20 active:scale-95 cursor-pointer">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path>
+        </svg>
+        <span>Manage Prizes (<span id="prizeCountBadge">0</span>)</span>
+      </button>
+
+      <button id="historyBtn" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-surface-border bg-surface hover:bg-surface-light text-xs font-semibold text-gray-300 transition-colors cursor-pointer" title="Winners log">
+        <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+        </svg>
+        <span class="hidden md:inline">Log</span>
+      </button>
+      
+      <button id="fullscreenBtn" class="p-1.5 rounded-lg border border-surface-border bg-surface hover:bg-surface-light text-gray-300 transition-colors" title="Toggle Fullscreen">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"></path>
+        </svg>
+      </button>
+    </div>
+  </header>
+
+  <main class="flex-1 flex flex-col items-center justify-center p-3 sm:p-6 relative">
+    <div class="w-full max-w-4xl flex flex-col items-center justify-center">
+
+      <!-- Wheel Wrapper with Outer Neon Ring -->
+      <div class="relative w-[340px] h-[340px] sm:w-[480px] sm:h-[480px] md:w-[540px] md:h-[540px] flex items-center justify-center">
+        
+        <!-- Outer Decorative Glow Ring -->
+        <div class="absolute inset-0 rounded-full border-4 border-brand/40 neon-border pointer-events-none"></div>
+        <div class="absolute -inset-3 rounded-full border border-brand/20 animate-pulse pointer-events-none"></div>
+
+        <!-- The Pointer / Flapper Arrow at the Top (12 o'clock) -->
+        <div class="absolute -top-4 sm:-top-5 z-30 flex flex-col items-center pointer-events-none drop-shadow-[0_8px_10px_rgba(0,0,0,0.8)]">
+          <!-- Flapper Pin & Arrow -->
+          <div id="wheelTicker" class="ticker-bounce">
+            <svg class="w-9 h-11 sm:w-11 sm:h-14 filter drop-shadow-[0_2px_8px_rgba(255,76,0,0.8)]" viewBox="0 0 40 50">
+              <path d="M20 50 L5 8 Q5 2 20 2 Q35 2 35 8 Z" fill="#FF4C00" stroke="#FFFFFF" stroke-width="2.5" stroke-linejoin="round"/>
+              <circle cx="20" cy="12" r="5" fill="#FFFFFF"/>
+            </svg>
+          </div>
+        </div>
+
+        <!-- Wheel Canvas -->
+        <canvas id="wheelCanvas" class="w-full h-full cursor-pointer rounded-full transition-transform active:scale-[0.99] duration-75" title="Click anywhere on the wheel to spin!"></canvas>
+
+        <!-- Center Hub Spin Button -->
+        <button id="centerSpinBtn" class="absolute z-20 w-20 h-20 sm:w-24 sm:h-24 md:w-28 md:h-28 rounded-full bg-gradient-to-b from-[#1c1c20] via-black to-[#0c0c0e] border-4 border-brand flex flex-col items-center justify-center text-white shadow-2xl hover:scale-105 active:scale-95 transition-all group focus:outline-none focus:ring-4 focus:ring-brand/40">
+          <span class="text-xs sm:text-sm font-black tracking-widest text-brand group-hover:text-white uppercase font-display transition-colors">SPIN</span>
+          <span class="text-[9px] sm:text-[10px] text-gray-400 font-medium">PRESS SPACE</span>
+        </button>
+      </div>
+
+      <!-- Quick Spin Controls Bar below the wheel -->
+      <div class="mt-6 sm:mt-8 flex flex-wrap items-center justify-center gap-3">
+        <button id="bigSpinBtn" class="px-8 py-3.5 rounded-xl bg-brand hover:bg-brand-dark text-black font-display font-extrabold text-base sm:text-lg tracking-wider uppercase transition-all transform hover:-translate-y-0.5 active:translate-y-0 shadow-lg shadow-brand/30 flex items-center gap-2 cursor-pointer">
+          <svg class="w-5 h-5 fill-current" viewBox="0 0 24 24">
+            <path d="M8 5v14l11-7z"/>
+          </svg>
+          <span>SPIN THE WHEEL</span>
+        </button>
+
+        <button id="quickAddPrizeBtn" class="px-4 py-3.5 rounded-xl bg-surface border border-brand/50 hover:border-brand text-brand hover:bg-brand/10 font-bold text-sm transition-all flex items-center gap-1.5 cursor-pointer">
+          <svg class="w-4 h-4 text-brand" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+          </svg>
+          <span>Manage / Add Prizes</span>
+        </button>
+      </div>
+
+    </div>
+  </main>
+
+  <footer class="w-full border-t border-surface-border/60 bg-black/40 px-6 py-2.5 flex items-center justify-between text-xs text-gray-400">
+    <div class="flex items-center gap-2">
+      <span class="w-2 h-2 rounded-full bg-brand animate-ping"></span>
+      <span class="text-gray-300 font-medium">Conference Booth Ready</span>
+    </div>
+    <div class="flex items-center gap-4">
+      <span>Color Theme: <strong class="text-brand">#FF4C00</strong> &amp; <strong class="text-white">#000000</strong></span>
+    </div>
+  </footer>
+
+  <div id="prizeDrawer" class="fixed inset-0 z-50 hidden items-stretch justify-end">
+    <!-- Backdrop overlay -->
+    <div id="drawerBackdrop" class="fixed inset-0 bg-black/75 backdrop-blur-sm cursor-pointer"></div>
+
+    <!-- Drawer panel -->
+    <div class="relative w-full max-w-md bg-darkness border-l border-surface-border shadow-2xl flex flex-col z-10 h-full" id="drawerPanel">
+      
+      <!-- Drawer Header -->
+      <div class="p-5 border-b border-surface-border flex items-center justify-between bg-surface/60">
+        <div>
+          <h2 class="text-lg font-display font-bold text-white flex items-center gap-2">
+            <span>Prize Management</span>
+            <span class="text-xs bg-brand text-black font-extrabold px-2 py-0.5 rounded-full" id="drawerCount">0</span>
+          </h2>
+          <p class="text-xs text-gray-400 mt-0.5">Add, edit, or remove prizes instantly on the wheel.</p>
+        </div>
+        <button id="closeDrawerBtn" class="p-2 rounded-lg bg-surface border border-surface-border text-gray-400 hover:text-white hover:bg-surface-light cursor-pointer">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Quick Add New Prize Form -->
+      <div class="p-4 border-b border-surface-border bg-black/30">
+        <div class="flex items-center justify-between mb-2">
+          <label class="text-xs font-semibold text-gray-300 uppercase tracking-wider">Add Prizes</label>
+          <button type="button" id="toggleBulkBtn" class="text-xs text-brand hover:underline font-bold flex items-center gap-1 cursor-pointer">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+            <span id="bulkBtnText">Bulk Paste from Excel / Notes</span>
+          </button>
+        </div>
+
+        <!-- Single Prize Input -->
+        <form id="addPrizeForm" class="flex flex-col gap-2.5">
+          <div class="flex gap-2">
+            <input type="text" id="newPrizeInput" placeholder="e.g. Wireless Earbuds, Tech Cap..." maxlength="30" class="flex-1 bg-surface border border-surface-border rounded-lg px-3.5 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand">
+            <button type="submit" class="bg-brand hover:bg-brand-dark text-black font-bold px-4 py-2 rounded-lg text-sm transition-colors whitespace-nowrap flex items-center gap-1 shadow-sm cursor-pointer">
+              <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+              <span>Add</span>
+            </button>
+          </div>
+        </form>
+
+        <!-- Bulk Paste Box (Initially Hidden) -->
+        <div id="bulkImportBox" class="hidden flex-col gap-2 pt-2 border-t border-surface-border/60 mt-2">
+          <label class="text-[11px] text-gray-400">Paste items below (one prize per line or separated by commas):</label>
+          <textarea id="bulkPrizeTextarea" rows="4" placeholder="Smart Water Bottle&#10;Conference Hoodie&#10;Mechanical Keyboard&#10;Power Bank 10k&#10;VIP Consultation" class="w-full bg-surface border border-surface-border rounded-lg p-2.5 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-brand"></textarea>
+          <div class="flex items-center justify-between gap-2">
+            <label class="text-[11px] text-gray-400 flex items-center gap-1.5 cursor-pointer">
+              <input type="checkbox" id="bulkReplaceCheckbox" class="rounded accent-brand">
+              <span>Replace existing list</span>
+            </label>
+            <button type="button" id="applyBulkBtn" class="bg-brand text-black font-bold px-3 py-1.5 rounded-lg text-xs hover:bg-brand-dark transition-colors cursor-pointer">
+              Import Prizes
+            </button>
+          </div>
+        </div>
+
+        <div class="flex items-center justify-between text-xs text-gray-400 pt-2">
+          <span>Pattern: alternating #FF4C00 &amp; #000000</span>
+          <button type="button" id="loadPresetsBtn" class="text-brand hover:underline font-semibold cursor-pointer">Load Tech Swag Presets</button>
+        </div>
+      </div>
+
+      <!-- Prize List Items Container -->
+      <div class="flex-1 overflow-y-auto p-4 space-y-2.5" id="prizesListContainer">
+        <!-- Injected via JavaScript -->
+      </div>
+
+      <!-- Drawer Footer Controls -->
+      <div class="p-4 border-t border-surface-border bg-surface/50 flex items-center justify-between gap-2">
+        <button id="resetDefaultsBtn" class="text-xs text-gray-400 hover:text-white px-3 py-2 rounded border border-surface-border hover:bg-surface cursor-pointer">
+          Reset Defaults
+        </button>
+        <button id="clearAllBtn" class="text-xs text-red-400 hover:text-red-300 px-3 py-2 rounded border border-red-900/40 hover:bg-red-950/20 cursor-pointer">
+          Clear All
+        </button>
+        <button id="doneDrawerBtn" class="bg-brand text-black font-bold text-xs uppercase px-4 py-2 rounded-lg shadow hover:bg-brand-dark cursor-pointer">
+          Done
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div id="winnerModal" class="fixed inset-0 z-50 hidden items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+    <div class="w-full max-w-md bg-darkness border-2 border-brand rounded-2xl p-6 sm:p-8 text-center shadow-[0_0_50px_rgba(255,76,0,0.4)]" id="winnerModalCard">
+      <div class="w-16 h-16 rounded-full bg-brand/20 border-2 border-brand mx-auto flex items-center justify-center text-3xl mb-4 animate-bounce">
+        🎉
+      </div>
+      <p class="text-xs uppercase font-extrabold tracking-widest text-brand font-display mb-1">CONGRATULATIONS!</p>
+      <h3 class="text-xl sm:text-2xl font-bold text-gray-300">You won:</h3>
+      
+      <div class="my-5 p-4 rounded-xl bg-surface border border-surface-border">
+        <span id="winnerPrizeText" class="text-2xl sm:text-3xl font-display font-extrabold text-white block neon-text break-words">
+          Prize Name
+        </span>
+      </div>
+
+      <p class="text-xs text-gray-400 mb-6">Show this screen to the booth representative to claim your reward!</p>
+
+      <div class="flex flex-col sm:flex-row gap-3">
+        <button id="claimBtn" class="flex-1 py-3 px-4 rounded-xl bg-brand hover:bg-brand-dark text-black font-display font-extrabold text-sm uppercase tracking-wider transition-all shadow-lg shadow-brand/30 cursor-pointer">
+          Claim &amp; Continue
+        </button>
+        <button id="spinAgainBtn" class="py-3 px-4 rounded-xl bg-surface hover:bg-surface-light border border-surface-border text-gray-300 font-semibold text-sm transition-all cursor-pointer">
+          Spin Again
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div id="historyModal" class="fixed inset-0 z-50 hidden items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+    <div class="w-full max-w-lg bg-darkness border border-surface-border rounded-2xl p-5 shadow-2xl flex flex-col max-h-[80vh]">
+      <div class="flex items-center justify-between pb-3 border-b border-surface-border">
+        <h3 class="text-base font-display font-bold text-white flex items-center gap-2">
+          <span>Winner Log History</span>
+          <span id="historyBadgeCount" class="text-xs px-2 py-0.5 rounded-full bg-surface-light text-gray-300">0</span>
+        </h3>
+        <button id="closeHistoryBtn" class="text-gray-400 hover:text-white p-1 rounded-lg cursor-pointer">✕</button>
+      </div>
+
+      <div id="historyListContainer" class="flex-1 overflow-y-auto my-3 space-y-2 pr-1 text-sm">
+        <p class="text-gray-500 text-center py-8 text-xs">No spins recorded yet in this session.</p>
+      </div>
+
+      <div class="pt-3 border-t border-surface-border flex justify-between items-center text-xs">
+        <button id="clearHistoryBtn" class="text-red-400 hover:text-red-300 cursor-pointer">Clear History</button>
+        <button id="closeHistoryBtn2" class="px-4 py-2 bg-surface hover:bg-surface-light text-gray-200 rounded-lg cursor-pointer">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Notification Toast message container -->
+  <div id="toast" class="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-xl bg-surface border border-brand/50 text-white text-xs font-semibold shadow-xl shadow-black/80 opacity-0 pointer-events-none transition-all duration-300">
+    Notification message
+  </div>
+
+  <script>
+    /* Web Audio API Synthesizer (Mechanical Wheel Ticks & Victory Chimes - no external audio files) */
+    class SoundEngine {
+      constructor() {
+        this.ctx = null;
+        this.enabled = true;
+      }
+
+      init() {
+        if (!this.ctx) {
+          const AudioContext = window.AudioContext || window.webkitAudioContext;
+          this.ctx = new AudioContext();
+        }
+        if (this.ctx && this.ctx.state === 'suspended') {
+          this.ctx.resume();
+        }
+      }
+
+      // Crisp mechanical flapper ratchet click
+      playTick(speedMultiplier = 1) {
+        if (!this.enabled) return;
+        this.init();
+        if (!this.ctx) return;
+
+        try {
+          const t = this.ctx.currentTime;
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+
+          osc.type = 'triangle';
+          // Pitch shifts slightly based on wheel speed
+          const freq = Math.min(900, 350 + (speedMultiplier * 40));
+          osc.frequency.setValueAtTime(freq, t);
+          osc.frequency.exponentialRampToValueAtTime(80, t + 0.035);
+
+          gain.gain.setValueAtTime(0.25, t);
+          gain.gain.exponentialRampToValueAtTime(0.001, t + 0.035);
+
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+
+          osc.start(t);
+          osc.stop(t + 0.04);
+        } catch (e) {
+          // Audio safe fail
+        }
+      }
+
+      // Celebratory arpeggio win fanfare
+      playWin() {
+        if (!this.enabled) return;
+        this.init();
+        if (!this.ctx) return;
+
+        try {
+          const notes = [261.63, 329.63, 392.00, 523.25, 659.25, 783.99]; // C4, E4, G4, C5, E5, G5
+          notes.forEach((freq, index) => {
+            const t = this.ctx.currentTime + (index * 0.09);
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(freq, t);
+
+            gain.gain.setValueAtTime(0.2, t);
+            gain.gain.exponentialRampToValueAtTime(0.001, t + 0.45);
+
+            osc.connect(gain);
+            gain.connect(this.ctx.destination);
+
+            osc.start(t);
+            osc.stop(t + 0.46);
+          });
+        } catch (e) {
+          // Audio safe fail
+        }
+      }
+    }
+
+    const sound = new SoundEngine();
+
+    const DEFAULT_PRIZES = [
+      { id: '1', name: 'Wireless Headphones', weight: 1 },
+      { id: '2', name: 'Branded Hoodie', weight: 1 },
+      { id: '3', name: 'VIP Consultation', weight: 1 },
+      { id: '4', name: 'Thermos Tumbler', weight: 1 },
+      { id: '5', name: 'Tech Sticker Pack', weight: 1 },
+      { id: '6', name: 'Power Bank 10k', weight: 1 },
+      { id: '7', name: 'High Five & Pen', weight: 1 },
+      { id: '8', name: 'Mystery Gift Box', weight: 1 }
+    ];
+
+    const PRESET_TECH_SWAG = [
+      { id: '1', name: 'Mechanical Keyboard', weight: 1 },
+      { id: '2', name: 'Conference T-Shirt', weight: 1 },
+      { id: '3', name: '1-Year SaaS License', weight: 1 },
+      { id: '4', name: 'Enamel Pin Set', weight: 1 },
+      { id: '5', name: 'Smart Water Bottle', weight: 1 },
+      { id: '6', name: 'Webcam Privacy Shutter', weight: 1 }
+    ];
+
+    // LocalStorage keys
+    const STORAGE_KEY = 'conf_wheel_prizes_v2';
+    const HISTORY_KEY = 'conf_wheel_history_v2';
+
+    // Application state
+    let prizes = [];
+    let winnersLog = [];
+
+    // Load state safely
+    try {
+      const savedPrizes = localStorage.getItem(STORAGE_KEY);
+      prizes = savedPrizes ? JSON.parse(savedPrizes) : DEFAULT_PRIZES;
+      if (!Array.isArray(prizes) || prizes.length === 0) {
+        prizes = [...DEFAULT_PRIZES];
+      }
+    } catch (e) {
+      prizes = [...DEFAULT_PRIZES];
+    }
+
+    try {
+      const savedHistory = localStorage.getItem(HISTORY_KEY);
+      winnersLog = savedHistory ? JSON.parse(savedHistory) : [];
+    } catch (e) {
+      winnersLog = [];
+    }
+
+    function savePrizes() {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(prizes));
+      } catch (e) {}
+      updatePrizeUI();
+      drawWheel();
+    }
+
+    function saveHistory() {
+      try {
+        localStorage.setItem(HISTORY_KEY, JSON.stringify(winnersLog));
+      } catch (e) {}
+      updateHistoryUI();
+    }
+
+    const canvas = document.getElementById('wheelCanvas');
+    const ctx = canvas.getContext('2d');
+    const tickerEl = document.getElementById('wheelTicker');
+
+    // Physics & rotation parameters
+    let currentAngle = 0; // In radians
+    let angularVelocity = 0; // Radians per frame
+    let friction = 0.988; // Deceleration rate
+    let isSpinning = false;
+    let lastSegmentIndex = -1;
+
+    // Strict user requested brand colors
+    const COLOR_ORANGE = '#FF4C00';
+    const COLOR_BLACK = '#0A0A0C';
+    const COLOR_ACCENT_DARK = '#141418';
+
+    function resizeCanvas() {
+      const rect = canvas.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = rect.width * dpr;
+      canvas.height = rect.height * dpr;
+      ctx.scale(dpr, dpr);
+      drawWheel();
+    }
+
+    window.addEventListener('resize', resizeCanvas);
+
+    // Draw the complete Wheel on Canvas
+    function drawWheel() {
+      const rect = canvas.getBoundingClientRect();
+      const width = rect.width;
+      const height = rect.height;
+      if (width === 0 || height === 0) return;
+
+      const centerX = width / 2;
+      const centerY = height / 2;
+      const radius = Math.min(centerX, centerY) - 8;
+
+      ctx.clearRect(0, 0, width, height);
+
+      const count = prizes.length;
+      if (count === 0) {
+        // Empty placeholder state
+        ctx.save();
+        ctx.fillStyle = '#18181b';
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
+        ctx.fill();
+        ctx.fillStyle = '#9ca3af';
+        ctx.font = 'bold 16px Inter, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('Please add prizes to spin!', centerX, centerY);
+        ctx.restore();
+        return;
+      }
+
+      const arcSize = (2 * Math.PI) / count;
+
+      // Draw all segments
+      for (let i = 0; i < count; i++) {
+        const segAngle = currentAngle + (i * arcSize);
+        ctx.save();
+
+        // 1. Draw segment background using alternating #FF4C00 and #000000 / deep dark
+        ctx.beginPath();
+        ctx.moveTo(centerX, centerY);
+        ctx.arc(centerX, centerY, radius, segAngle, segAngle + arcSize);
+        ctx.closePath();
+
+        const isEven = i % 2 === 0;
+        // Even segments = Vibrant Brand Orange (#FF4C00)
+        // Odd segments = Sleek Black (#000000)
+        ctx.fillStyle = isEven ? COLOR_ORANGE : COLOR_BLACK;
+        ctx.fill();
+
+        // High-contrast clean segment border
+        ctx.lineWidth = 2.5;
+        ctx.strokeStyle = '#18181c';
+        ctx.stroke();
+
+        // 2. Outer rim accent curve for segment
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, radius - 2, segAngle, segAngle + arcSize);
+        ctx.lineWidth = 4;
+        ctx.strokeStyle = isEven ? '#ff783e' : '#FF4C00';
+        ctx.stroke();
+
+        // 3. Segment decorative outer rivet/stud
+        const midAngle = segAngle + (arcSize / 2);
+        const rivetX = centerX + Math.cos(midAngle) * (radius - 12);
+        const rivetY = centerY + Math.sin(midAngle) * (radius - 12);
+        ctx.beginPath();
+        ctx.arc(rivetX, rivetY, 3, 0, Math.PI * 2);
+        ctx.fillStyle = isEven ? '#000000' : '#FF4C00';
+        ctx.fill();
+
+        // 4. Text Label
+        ctx.save();
+        ctx.translate(centerX, centerY);
+        ctx.rotate(midAngle);
+
+        // Text styling based on background
+        ctx.textAlign = 'right';
+        ctx.textBaseline = 'middle';
+
+        // Font scaling based on prize name length and number of slices
+        const baseFontSize = count > 12 ? 11 : (count > 8 ? 13 : 15);
+        ctx.font = `700 ${baseFontSize}px "Space Grotesk", Inter, sans-serif`;
+
+        if (isEven) {
+          ctx.fillStyle = '#000000';
+        } else {
+          ctx.fillStyle = '#FFFFFF';
+        }
+
+        // Ellipsize long text so it always fits comfortably
+        const maxTextWidth = radius * 0.58;
+        let displayName = prizes[i].name;
+        if (ctx.measureText(displayName).width > maxTextWidth) {
+          while (ctx.measureText(displayName + '…').width > maxTextWidth && displayName.length > 1) {
+            displayName = displayName.slice(0, -1);
+          }
+          displayName += '…';
+        }
+
+        // Render text with generous offset from edge and hub
+        ctx.fillText(displayName, radius - 24, 0);
+
+        ctx.restore();
+        ctx.restore();
+      }
+
+      // Outer bezel ring
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
+      ctx.lineWidth = 6;
+      ctx.strokeStyle = '#000000';
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    function getWinningIndex() {
+      if (prizes.length === 0) return -1;
+      const count = prizes.length;
+      const arcSize = (2 * Math.PI) / count;
+
+      // Pointer is fixed at 12 o'clock (-PI / 2 radians)
+      // Normalize angle to 0 - 2PI
+      const pointerAngle = (3 * Math.PI) / 2;
+      let normalizedAngle = (pointerAngle - currentAngle) % (2 * Math.PI);
+      if (normalizedAngle < 0) normalizedAngle += 2 * Math.PI;
+
+      return Math.floor(normalizedAngle / arcSize) % count;
+    }
+
+    function animateWheel() {
+      if (!isSpinning && angularVelocity === 0) return;
+
+      currentAngle += angularVelocity;
+      currentAngle = currentAngle % (2 * Math.PI);
+
+      // Detect sector crossings for audio tick and pointer bounce
+      const currentIndex = getWinningIndex();
+      if (currentIndex !== lastSegmentIndex && lastSegmentIndex !== -1) {
+        sound.playTick(angularVelocity * 100);
+        
+        // Trigger pointer vibration
+        tickerEl.style.transform = 'rotate(-18deg)';
+        setTimeout(() => {
+          tickerEl.style.transform = 'rotate(0deg)';
+        }, 55);
+      }
+      lastSegmentIndex = currentIndex;
+
+      // Apply decelerating friction
+      angularVelocity *= friction;
+
+      // Stop threshold
+      if (angularVelocity < 0.0018) {
+        angularVelocity = 0;
+        isSpinning = false;
+        drawWheel();
+        onSpinComplete(currentIndex);
+        return;
+      }
+
+      drawWheel();
+      requestAnimationFrame(animateWheel);
+    }
+
+    // Trigger Wheel Spin with randomized speed and duration
+    function triggerSpin() {
+      if (isSpinning) return;
+      if (prizes.length === 0) {
+        showToast('Add at least one prize to spin!');
+        openDrawer();
+        return;
+      }
+
+      sound.init(); // Initialize audio context on user gesture
+      isSpinning = true;
+
+      // Generate randomized initial speed (between 0.35 and 0.55 rad/frame)
+      // and random friction (between 0.985 and 0.991) for realistic suspense
+      angularVelocity = 0.35 + Math.random() * 0.22;
+      friction = 0.986 + Math.random() * 0.005;
+
+      lastSegmentIndex = -1;
+      requestAnimationFrame(animateWheel);
+    }
+
+    const winnerModal = document.getElementById('winnerModal');
+    const winnerModalCard = document.getElementById('winnerModalCard');
+    const winnerPrizeText = document.getElementById('winnerPrizeText');
+
+    function onSpinComplete(winnerIndex) {
+      if (winnerIndex < 0 || winnerIndex >= prizes.length) return;
+      const wonPrize = prizes[winnerIndex];
+
+      // Play victory sound
+      sound.playWin();
+
+      // Confetti burst with brand colors (#FF4C00, #FFFFFF, Gold)
+      if (typeof confetti === 'function') {
+        confetti({
+          particleCount: 110,
+          spread: 80,
+          origin: { y: 0.6 },
+          colors: ['#FF4C00', '#ffffff', '#ffa372', '#222222']
+        });
+        setTimeout(() => {
+          confetti({
+            particleCount: 60,
+            angle: 60,
+            spread: 55,
+            origin: { x: 0.1, y: 0.7 },
+            colors: ['#FF4C00', '#ffffff']
+          });
+          confetti({
+            particleCount: 60,
+            angle: 120,
+            spread: 55,
+            origin: { x: 0.9, y: 0.7 },
+            colors: ['#FF4C00', '#ffffff']
+          });
+        }, 300);
+      }
+
+      // Record in winner history
+      const record = {
+        id: Date.now(),
+        prize: wonPrize.name,
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+      };
+      winnersLog.unshift(record);
+      saveHistory();
+
+      // Show Winner Modal
+      winnerPrizeText.textContent = wonPrize.name;
+      winnerModal.classList.remove('hidden');
+      winnerModal.classList.add('flex');
+    }
+
+    function closeWinnerModal() {
+      winnerModal.classList.add('hidden');
+      winnerModal.classList.remove('flex');
+    }
+
+    document.getElementById('claimBtn').addEventListener('click', closeWinnerModal);
+    document.getElementById('spinAgainBtn').addEventListener('click', () => {
+      closeWinnerModal();
+      setTimeout(triggerSpin, 350);
+    });
+
+    const prizeDrawer = document.getElementById('prizeDrawer');
+    const drawerPanel = document.getElementById('drawerPanel');
+    const prizesListContainer = document.getElementById('prizesListContainer');
+    const prizeCountBadge = document.getElementById('prizeCountBadge');
+    const drawerCount = document.getElementById('drawerCount');
+    const newPrizeInput = document.getElementById('newPrizeInput');
+
+    const toggleBulkBtn = document.getElementById('toggleBulkBtn');
+    const bulkImportBox = document.getElementById('bulkImportBox');
+    const bulkBtnText = document.getElementById('bulkBtnText');
+    const bulkPrizeTextarea = document.getElementById('bulkPrizeTextarea');
+    const applyBulkBtn = document.getElementById('applyBulkBtn');
+    const bulkReplaceCheckbox = document.getElementById('bulkReplaceCheckbox');
+
+    toggleBulkBtn.addEventListener('click', () => {
+      const isHidden = bulkImportBox.classList.contains('hidden');
+      if (isHidden) {
+        bulkImportBox.classList.remove('hidden');
+        bulkImportBox.classList.add('flex');
+        bulkBtnText.textContent = 'Hide Bulk Paste';
+        bulkPrizeTextarea.focus();
+      } else {
+        bulkImportBox.classList.add('hidden');
+        bulkImportBox.classList.remove('flex');
+        bulkBtnText.textContent = 'Bulk Paste from Excel / Notes';
+      }
+    });
+
+    applyBulkBtn.addEventListener('click', () => {
+      const rawText = bulkPrizeTextarea.value.trim();
+      if (!rawText) {
+        showToast('Please paste or type prize names first!');
+        return;
+      }
+
+      // Split by newlines or commas
+      const rawLines = rawText.split(/[\r\n,]+/);
+      const parsedNames = rawLines
+        .map(item => item.trim())
+        .filter(item => item.length > 0)
+        .map(item => item.slice(0, 30));
+
+      if (parsedNames.length === 0) {
+        showToast('No valid prize names found.');
+        return;
+      }
+
+      if (bulkReplaceCheckbox.checked) {
+        prizes = parsedNames.map((name, i) => ({
+          id: (Date.now() + i).toString(),
+          name: name,
+          weight: 1
+        }));
+      } else {
+        parsedNames.forEach((name, i) => {
+          prizes.push({
+            id: (Date.now() + i).toString(),
+            name: name,
+            weight: 1
+          });
+        });
+      }
+
+      bulkPrizeTextarea.value = '';
+      savePrizes();
+      showToast(`Added ${parsedNames.length} prizes successfully!`);
+    });
+
+    function openDrawer() {
+      prizeDrawer.classList.remove('hidden');
+      prizeDrawer.classList.add('flex');
+      setTimeout(() => {
+        newPrizeInput.focus();
+      }, 50);
+    }
+
+    function closeDrawer() {
+      prizeDrawer.classList.add('hidden');
+      prizeDrawer.classList.remove('flex');
+    }
+
+    document.getElementById('openPrizesBtn').addEventListener('click', openDrawer);
+    document.getElementById('quickAddPrizeBtn').addEventListener('click', openDrawer);
+    document.getElementById('closeDrawerBtn').addEventListener('click', closeDrawer);
+    document.getElementById('doneDrawerBtn').addEventListener('click', closeDrawer);
+    document.getElementById('drawerBackdrop').addEventListener('click', closeDrawer);
+
+    function updatePrizeUI() {
+      prizeCountBadge.textContent = prizes.length;
+      drawerCount.textContent = `${prizes.length} Prizes`;
+
+      if (prizes.length === 0) {
+        prizesListContainer.innerHTML = `
+          <div class="text-center py-10 px-4 border border-dashed border-surface-border rounded-xl">
+            <p class="text-gray-400 text-sm">No prizes in the wheel yet.</p>
+            <p class="text-xs text-gray-500 mt-1">Type above or click below to load defaults.</p>
+            <button onclick="loadPresets()" class="mt-3 text-xs bg-brand/10 text-brand border border-brand/30 hover:bg-brand/20 px-3 py-1.5 rounded-lg font-semibold cursor-pointer">
+              Load Preset Swag
+            </button>
+          </div>
+        `;
+        return;
+      }
+
+      prizesListContainer.innerHTML = prizes.map((prize, idx) => {
+        const isOrange = idx % 2 === 0;
+        return `
+          <div class="flex items-center justify-between p-3 rounded-xl bg-surface border border-surface-border group hover:border-gray-500 transition-colors">
+            <div class="flex items-center gap-3 flex-1 min-w-0 mr-2">
+              <span class="w-3.5 h-3.5 rounded-full flex-shrink-0 shadow" style="background-color: ${isOrange ? '#FF4C00' : '#000000'}; border: 1.5px solid #444;"></span>
+              <span class="text-xs font-mono text-gray-500 w-5">#${idx + 1}</span>
+              <input type="text" value="${escapeHtml(prize.name)}" 
+                oninput="editPrizeName('${prize.id}', this.value)" 
+                class="bg-transparent text-sm font-semibold text-white focus:bg-black/60 px-2 py-1 rounded border border-transparent focus:border-brand outline-none w-full truncate">
+            </div>
+            
+            <div class="flex items-center gap-1">
+              <button onclick="removePrize('${prize.id}')" class="text-gray-500 hover:text-red-400 p-1.5 rounded hover:bg-surface-light transition-colors cursor-pointer" title="Delete prize">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                </svg>
+              </button>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    // Add Prize Handler
+    document.getElementById('addPrizeForm').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const val = newPrizeInput.value.trim();
+      if (!val) return;
+
+      prizes.push({
+        id: Date.now().toString(),
+        name: val,
+        weight: 1
+      });
+
+      newPrizeInput.value = '';
+      savePrizes();
+      showToast(`Added "${val}" to wheel!`);
+    });
+
+    window.editPrizeName = function(id, newName) {
+      const trimmed = newName.trim();
+      const prize = prizes.find(p => p.id === id);
+      if (prize && trimmed) {
+        prize.name = trimmed;
+        // Save and redraw canvas in real time
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(prizes));
+        } catch (e) {}
+        drawWheel();
+      }
+    };
+
+    window.removePrize = function(id) {
+      prizes = prizes.filter(p => p.id !== id);
+      savePrizes();
+      showToast('Prize removed');
+    };
+
+    window.loadPresets = function() {
+      prizes = [...PRESET_TECH_SWAG];
+      savePrizes();
+      showToast('Loaded tech swag presets');
+    };
+
+    document.getElementById('loadPresetsBtn').addEventListener('click', window.loadPresets);
+
+    document.getElementById('resetDefaultsBtn').addEventListener('click', () => {
+      prizes = [...DEFAULT_PRIZES];
+      savePrizes();
+      showToast('Reset to default prizes');
+    });
+
+    document.getElementById('clearAllBtn').addEventListener('click', () => {
+      prizes = [];
+      savePrizes();
+      showToast('Cleared all prizes');
+    });
+
+    const historyModal = document.getElementById('historyModal');
+    const historyListContainer = document.getElementById('historyListContainer');
+    const historyBadgeCount = document.getElementById('historyBadgeCount');
+
+    function updateHistoryUI() {
+      historyBadgeCount.textContent = winnersLog.length;
+      if (winnersLog.length === 0) {
+        historyListContainer.innerHTML = '<p class="text-gray-500 text-center py-8 text-xs">No spins recorded yet in this session.</p>';
+        return;
+      }
+
+      historyListContainer.innerHTML = winnersLog.map(item => `
+        <div class="flex items-center justify-between p-3 rounded-lg bg-surface border border-surface-border">
+          <div class="flex items-center gap-2.5">
+            <span class="text-brand">🎁</span>
+            <span class="font-semibold text-white">${escapeHtml(item.prize)}</span>
+          </div>
+          <span class="text-xs text-gray-400 font-mono">${item.timestamp}</span>
+        </div>
+      `).join('');
+    }
+
+    document.getElementById('historyBtn').addEventListener('click', () => {
+      historyModal.classList.remove('hidden');
+      historyModal.classList.add('flex');
+    });
+
+    const closeHistory = () => {
+      historyModal.classList.add('hidden');
+      historyModal.classList.remove('flex');
+    };
+
+    document.getElementById('closeHistoryBtn').addEventListener('click', closeHistory);
+    document.getElementById('closeHistoryBtn2').addEventListener('click', closeHistory);
+    document.getElementById('clearHistoryBtn').addEventListener('click', () => {
+      winnersLog = [];
+      saveHistory();
+      showToast('History cleared');
+    });
+
+    // Trigger spin on big button or center wheel button or wheel canvas click
+    document.getElementById('bigSpinBtn').addEventListener('click', triggerSpin);
+    document.getElementById('centerSpinBtn').addEventListener('click', triggerSpin);
+    canvas.addEventListener('click', triggerSpin);
+
+    // Keyboard Spacebar listener for conference laptop kiosk convenience
+    window.addEventListener('keydown', (e) => {
+      // Ignore when typing inside input forms
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+
+      if (e.code === 'Space') {
+        e.preventDefault();
+        if (!winnerModal.classList.contains('hidden')) {
+          closeWinnerModal();
+        } else {
+          triggerSpin();
+        }
+      } else if (e.code === 'Escape') {
+        closeWinnerModal();
+        closeDrawer();
+        closeHistory();
+      }
+    });
+
+    // Sound toggle
+    const soundToggleBtn = document.getElementById('soundToggleBtn');
+    const soundIcon = document.getElementById('soundIcon');
+    const soundLabel = document.getElementById('soundLabel');
+
+    soundToggleBtn.addEventListener('click', () => {
+      sound.enabled = !sound.enabled;
+      soundIcon.textContent = sound.enabled ? '🔊' : '🔇';
+      soundLabel.textContent = sound.enabled ? 'Audio On' : 'Audio Muted';
+      showToast(sound.enabled ? 'Sound Enabled' : 'Sound Muted');
+    });
+
+    // Fullscreen Toggle for Conference Kiosk Display
+    document.getElementById('fullscreenBtn').addEventListener('click', () => {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(() => {});
+      } else {
+        if (document.exitFullscreen) {
+          document.exitFullscreen();
+        }
+      }
+    });
+
+    // Toast Notification helper
+    let toastTimeout;
+    function showToast(message) {
+      const toast = document.getElementById('toast');
+      toast.textContent = message;
+      toast.classList.remove('opacity-0', 'pointer-events-none');
+      clearTimeout(toastTimeout);
+      toastTimeout = setTimeout(() => {
+        toast.classList.add('opacity-0', 'pointer-events-none');
+      }, 2400);
+    }
+
+    window.onload = function() {
+      resizeCanvas();
+      updatePrizeUI();
+      updateHistoryUI();
+    };
+  </script>
+</body>
+</html>
